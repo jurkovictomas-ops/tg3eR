@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Volley Deník</title>
+  <meta name="description" content="Taktický volejbalový deník, plánovač a checklist" />
+  <meta name="theme-color" content="#16233F" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Volley Deník" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <style>
+    :root {
+      --bg: #F4F6FB;
+      --card-bg: #FFFFFF;
+      --primary: #16233F;
+      --accent: #FF6B4A;
+      --accent-soft: #FFF1EC;
+      --blue: #2563EB;
+      --blue-soft: #EFF6FF;
+      --green: #10B981;
+      --green-soft: #ECFDF5;
+      --text: #16233F;
+      --subtext: #64748B;
+      --border: #E2E8F0;
+      --radius: 18px;
+      --shadow: 0 4px 14px rgba(22, 35, 63, 0.05);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body, html {
+      margin: 0; padding: 0; height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg); color: var(--text);
+      overflow: hidden;
+    }
+
+    .app {
+      display: flex; flex-direction: column;
+      height: 100dvh; max-width: 520px; margin: 0 auto;
+      background: var(--bg);
+      position: relative;
+    }
+
+    header {
+      padding: calc(12px + env(safe-area-inset-top, 0px)) 18px 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--primary); color: #fff;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-icon {
+      width: 38px; height: 38px; background: rgba(255,255,255,0.15);
+      border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      font-size: 20px; border: 1px solid rgba(255,255,255,0.2);
+    }
+    .brand-title { font-size: 20px; font-weight: 800; color: #fff; margin: 0; letter-spacing: -0.3px; }
+    .install-btn {
+      display: none; background: var(--accent); color: #fff; border: none;
+      border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 700;
+      cursor: pointer; box-shadow: 0 2px 8px rgba(255,107,74,0.4);
+    }
+
+    main {
+      flex: 1; overflow-y: auto; padding: 14px 16px 24px;
+      -webkit-overflow-scrolling: touch;
+    }
+    main::-webkit-scrollbar { width: 0; }
+
+    .cal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; background: var(--card-bg); padding: 12px 16px;
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+    .cal-month-title { font-size: 16px; font-weight: 800; color: var(--primary); text-transform: capitalize; }
+    .cal-nav { display: flex; gap: 6px; align-items: center; }
+    .cal-btn {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+      width: 32px; height: 32px; font-size: 16px; font-weight: 700; color: var(--primary);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .cal-today-btn {
+      background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(255,107,74,0.2);
+      border-radius: 10px; padding: 0 12px; height: 32px; font-size: 12px;
+      font-weight: 700; cursor: pointer;
+    }
+
+    .cal-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px;
+      background: var(--card-bg); padding: 12px; border-radius: var(--radius);
+      box-shadow: var(--shadow); margin-bottom: 16px; border: 1px solid var(--border);
+    }
+    .cal-day-name {
+      text-align: center; font-size: 11px; font-weight: 700; color: var(--subtext);
+      padding-bottom: 6px; text-transform: uppercase;
+    }
+    .cal-cell {
+      aspect-ratio: 1; border-radius: 12px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; position: relative;
+      cursor: pointer; background: #FAFAFC; border: 1.5px solid transparent;
+      transition: all 0.15s ease; padding: 2px;
+    }
+    .cal-cell.other-month { opacity: 0.3; background: transparent; }
+    .cal-cell.selected { border-color: var(--accent); background: var(--accent-soft); }
+    .cal-cell.today { font-weight: 800; color: var(--accent); background: #FFFBF9; border-color: rgba(255,107,74,0.3); }
+    .cal-day-num { font-size: 13px; font-weight: 700; }
+    .cal-dots { display: flex; gap: 3px; margin-top: 3px; height: 6px; align-items: center; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .dot.match { background: var(--accent); }
+    .dot.training { background: var(--blue); }
+
+    .detail-card {
+      background: var(--card-bg); border-radius: var(--radius);
+      padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+    .detail-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 10px;
+    }
+    .detail-date { font-size: 15px; font-weight: 800; color: var(--primary); }
+    
+    .btn {
+      width: 100%; border: none; border-radius: 12px; padding: 11px 16px;
+      font-size: 14px; font-weight: 700; cursor: pointer; display: inline-flex;
+      align-items: center; justify-content: center; gap: 8px; transition: transform 0.1s;
+      text-decoration: none;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 3px 10px rgba(255,107,74,0.25); }
+    .btn-secondary { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(255,107,74,0.2); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--subtext); }
+
+    .event-card {
+      background: #FAFAFC; border: 1px solid var(--border); border-radius: 14px;
+      padding: 14px; margin-bottom: 12px; transition: all 0.2s;
+    }
+    .event-card.match { border-left: 5px solid var(--accent); }
+    .event-card.training { border-left: 5px solid var(--blue); }
+    .event-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+    .event-title { font-weight: 800; font-size: 15px; color: var(--primary); }
+    .event-sub { font-size: 12px; color: var(--subtext); margin-top: 2px; }
+    .event-actions { display: flex; gap: 8px; margin-top: 10px; }
+    
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 8px; font-size: 11px; font-weight: 700;
+    }
+    .badge-match { background: var(--accent-soft); color: var(--accent); }
+    .badge-training { background: var(--blue-soft); color: var(--blue); }
+
+    .form-group { margin-bottom: 14px; }
+    .form-label { font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 6px; display: block; }
+    .input {
+      width: 100%; border: 1px solid var(--border); background: #FAFBFC;
+      border-radius: 12px; padding: 10px 12px; font-size: 14px; color: var(--text);
+      font-family: inherit; appearance: none;
+    }
+    .input:focus { outline: 2px solid rgba(255,107,74,0.2); border-color: var(--accent); background: #fff; }
+    textarea.input { resize: vertical; min-height: 65px; }
+
+    .cat-box {
+      background: #FAFAFC; border: 1px solid var(--border); border-radius: 14px;
+      padding: 12px; margin-bottom: 12px;
+    }
+    .cat-title {
+      font-size: 13px; font-weight: 800; color: var(--primary);
+      margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--border); padding-bottom: 6px;
+    }
+
+    .check-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 0; border-bottom: 1px dashed var(--border); gap: 10px;
+    }
+    .check-row:last-child { border-bottom: none; }
+    .check-label { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
+    .check-controls { display: flex; align-items: center; gap: 12px; }
+    
+    .chk-btn {
+      display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700;
+      padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border);
+      background: #fff; cursor: pointer; user-select: none; transition: all 0.15s;
+    }
+    .chk-btn.plan-active { background: var(--blue-soft); color: var(--blue); border-color: rgba(37,99,235,0.4); }
+    .chk-btn.done-active { background: var(--green-soft); color: var(--green); border-color: rgba(16,185,129,0.4); }
+
+    .pain-box { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+    .pain-num {
+      width: 28px; height: 28px; border-radius: 50%; color: #fff;
+      font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .tabbar {
+      display: flex; background: var(--card-bg); border-top: 1px solid var(--border);
+      padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px));
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.03);
+    }
+    .tab-btn {
+      flex: 1; border: none; background: none; display: flex; flex-direction: column;
+      align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--subtext);
+      cursor: pointer; padding: 4px;
+    }
+    .tab-btn.active { color: var(--accent); }
+    .tab-icon { font-size: 20px; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+    .stat-card {
+      background: var(--card-bg); border-radius: 16px; padding: 14px;
+      box-shadow: var(--shadow); border: 1px solid var(--border);
+    }
+    .stat-val { font-size: 22px; font-weight: 800; color: var(--primary); }
+    .stat-lbl { font-size: 11px; font-weight: 700; color: var(--subtext); margin-top: 2px; }
+
+    .toast {
+      position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); left: 50%;
+      transform: translateX(-50%); background: var(--primary); color: #fff;
+      padding: 10px 20px; border-radius: 25px; font-size: 13px; font-weight: 700;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25); display: none; z-index: 1000;
+    }
+
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.5); backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center; padding: 16px; z-index: 500;
+    }
+    .modal {
+      background: var(--card-bg); border-radius: var(--radius); padding: 20px;
+      width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+
+    .progress-bar-bg {
+      background: var(--border); border-radius: 8px; height: 8px; width: 100%; overflow: hidden; margin-top: 6px;
+    }
+    .progress-bar-fill {
+      background: var(--green); height: 100%; border-radius: 8px; transition: width 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="toast" id="toast"></div>
+
+    <header>
+      <div class="brand">
+        <div class="brand-icon">🏐</div>
+        <h1 class="brand-title">Volley Deník</h1>
+      </div>
+      <button class="install-btn" id="installBtn">📲 Instalovat</button>
+    </header>
+
+    <main id="mainContent"></main>
+
+    <nav class="tabbar">
+      <button class="tab-btn active" id="navCal" onclick="switchTab('cal')">
+        <span class="tab-icon">📅</span>Kalendář
+      </button>
+      <button class="tab-btn" id="navHistory" onclick="switchTab('history')">
+        <span class="tab-icon">📊</span>Statistiky & Historie
+      </button>
+    </nav>
+  </div>
+
+  <!-- Modal Pro Vytvoření / Úpravu Akce -->
+  <div class="modal-overlay" id="eventModal">
+    <div class="modal">
+      <h3 style="margin-top:0; margin-bottom:14px; font-size:18px; color:var(--primary);" id="modalTitle">Naplánovat novou akci</h3>
+      <input type="hidden" id="eventId" />
+      
+      <div class="form-group">
+        <label class="form-label">Typ akce</label>
+        <select class="input" id="eventType" onchange="toggleEventFields()">
+          <option value="match">🏐 Zápas</option>
+          <option value="training">💪 Trénink</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="eventOpponentGroup">
+        <label class="form-label">Soupeř / Název zápasu</label>
+        <input class="input" id="eventOpponent" placeholder="např. VK Ostrava" />
+      </div>
+
+      <div class="form-group" id="eventTitleGroup" style="display:none;">
+        <label class="form-label">Název tréninku</label>
+        <input class="input" id="eventTitle" placeholder="např. Ranní trénink - podání a příjem" />
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">Čas</label>
+          <input class="input" id="eventTime" placeholder="např. 18:00" />
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">Místo / Hala</label>
+          <input class="input" id="eventLoc" placeholder="např. Sportovní hala" />
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:16px;">
+        <button class="btn btn-outline" onclick="closeEventModal()">Zrušit</button>
+        <button class="btn btn-primary" onclick="saveEventModal()">Uložit akci</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Pro Taktický Plán & Checklist -->
+  <div class="modal-overlay" id="planModal">
+    <div class="modal" style="max-width:500px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0; font-size:18px; color:var(--primary);" id="planModalHeader">Taktický plán</h3>
+        <button onclick="closePlanModal()" style="border:none; background:none; font-size:20px; cursor:pointer; color:var(--subtext);">✕</button>
+      </div>
+      <div id="planModalDate" style="font-size:13px; font-weight:700; color:var(--subtext); margin-bottom:14px;"></div>
+      
+      <input type="hidden" id="planEventId" />
+
+      <div style="font-size:12px; color:var(--subtext); background:var(--bg); padding:10px 12px; border-radius:10px; margin-bottom:14px;">
+        💡 <b>Jak používat:</b> Před akcí si zaškrtni <b>Plán</b> (co chceš zkoušet/hrát). Po akci vyznač <b>Splněno</b> u toho, co se ti podařilo.
+      </div>
+
+      <div id="checklistContainer"></div>
+
+      <div style="border-top:1px solid var(--border); padding-top:14px; margin-top:14px;">
+        <h4 style="margin:0 0 10px; font-size:14px; color:var(--primary);">📝 Vyhodnocení & Poznamky po zápase/tréninku</h4>
+        
+        <div class="form-group">
+          <label class="form-label">Co se dnes povedlo</label>
+          <textarea class="input" id="p-wentWell" placeholder="Pochval se za dobrá rozhodnutí, obranu, týmového ducha..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Na čem zapracovat příště</label>
+          <textarea class="input" id="p-improve" placeholder="Co ještě vylepšit v příštím tréninku/zápase..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">🩹 Fyzický stav & Bolest (0 = bez bolesti, 10 = silná bolest)</label>
+          <div class="pain-box">
+            <input type="range" min="0" max="10" value="0" style="flex:1;" id="p-kneePain" oninput="updatePainBadge(this.value)" />
+            <span class="pain-num" id="painBadge" style="background:#10B981">0</span>
+          </div>
+          <textarea class="input" style="margin-top:8px;" id="p-kneePainNote" placeholder="Poznámka k fyzickému stavu (např. bolest kolene při doskoku)..."></textarea>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:18px;">
+        <button class="btn btn-outline" onclick="closePlanModal()">Zrušit</button>
+        <button class="btn btn-primary" onclick="savePlanModal()">💾 Uložit taktický plán & hodnocení</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+
+    const STORAGE_KEY_EVENTS = "volley_events_v4";
+    let events = JSON.parse(localStorage.getItem(STORAGE_KEY_EVENTS) || "[]");
+
+    let activeTab = "cal";
+    let selectedDate = new Date();
+    let currentCalMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+
+    // Taktický checklist specifikovaný v požadavcích
+    const CHECKLIST_CATEGORIES = [
+      {
+        id: "attack",
+        title: "a) Útok (Smeče)",
+        icon: "⚔️",
+        items: [
+          { id: "ostra_diag", label: "Ostrá diagonála" },
+          { id: "hluboka_diag", label: "Diagonála (hloubka)" },
+          { id: "lajna", label: "Lajna / Na čáru" },
+          { id: "pipe", label: "Pipe (Útok ze zadní zóny)" },
+          { id: "uliti", label: "Ulití / Taktický tečovaný míč (otbij)" },
+          { id: "blok_out", label: "Útok vytloukáním bloku (Blok-out)" }
+        ]
+      },
+      {
+        id: "serve",
+        title: "b) Podání",
+        icon: "📤",
+        items: [
+          { id: "float", label: "Plachtící podání (Float)" },
+          { id: "skakany_float", label: "Skákané plachtící podání" },
+          { id: "skakany_topspin", label: "Skákaný topspin" },
+          { id: "debl", label: "Taktické podání do debla (mezi hráče)" },
+          { id: "zadni_cara", label: "Podání na zadní čáru" },
+          { id: "nejslabsi_prijimac", label: "Podání na nejslabšího přihrávače soupeře" }
+        ]
+      },
+      {
+        id: "block_defense",
+        title: "c) Blok a Obrana",
+        icon: "🛡️",
+        items: [
+          { id: "zavirani_lajny", label: "Zavírání lajny na bloku" },
+          { id: "cteni_nahravace", label: "Čtení nahrávače soupeře" },
+          { id: "postaveni_uliti", label: "Správné postavení v poli a vybírání ulití" }
+        ]
+      },
+      {
+        id: "mindset",
+        title: "d) Mentalita a Výkon",
+        icon: "🧠",
+        items: [
+          { id: "komunikace", label: "Hlasitá komunikace a organizace na hřišti" },
+          { id: "soustredeni", label: "Udržení soustředění při nepříznivém stavu" }
+        ]
+      }
+    ];
+
+    function toIso(d) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    // Český formát data
+    function formatCsDateShort(iso) {
+      if (!iso) return "";
+      const [y, m, d] = iso.split("-").map(Number);
+      return `${d}. ${m}. ${y}`;
+    }
+
+    function formatCsDateLong(iso) {
+      if (!iso) return "";
+      const [y, m, d] = iso.split("-").map(Number);
+      const dt = new Date(y, m - 1, d);
+      const days = ["Neděle", "Pondělí", "Úterý", "Středa", "Čtvrtek", "Pátek", "Sobota"];
+      const months = ["ledna", "února", "března", "dubna", "května", "června", "července", "srpna", "září", "října", "listopadu", "prosince"];
+      return `${days[dt.getDay()]}, ${d}. ${months[dt.getMonth()]} ${y}`;
+    }
+
+    function getPainColor(lvl) {
+      if (lvl <= 2) return "#10B981";
+      if (lvl <= 5) return "#F59E0B";
+      return "#EF4444";
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg; t.style.display = "block";
+      setTimeout(() => t.style.display = "none", 2200);
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      document.getElementById("navCal").classList.toggle("active", tab === "cal");
+      document.getElementById("navHistory").classList.toggle("active", tab === "history");
+      render();
+    }
+
+    function render() {
+      const main = document.getElementById("mainContent");
+      if (activeTab === "cal") {
+        main.innerHTML = renderCalendarView();
+      } else {
+        main.innerHTML = renderHistoryView();
+      }
+    }
+
+    function renderCalendarView() {
+      const selectedIso = toIso(selectedDate);
+      const year = currentCalMonth.getFullYear();
+      const month = currentCalMonth.getMonth();
+      
+      const monthsCs = ["leden", "únor", "březen", "duben", "květen", "červen", "červenec", "srpen", "září", "říjen", "listopad", "prosinec"];
+      const monthName = `${monthsCs[month]} ${year}`;
+
+      const firstDayIdx = (new Date(year, month, 1).getDay() + 6) % 7;
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const prevMonthDays = new Date(year, month, 0).getDate();
+
+      let cellsHtml = "";
+      const dayNames = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
+      dayNames.forEach(d => cellsHtml += `<div class="cal-day-name">${d}</div>`);
+
+      for (let i = firstDayIdx - 1; i >= 0; i--) {
+        const dNum = prevMonthDays - i;
+        cellsHtml += `<div class="cal-cell other-month"><span class="cal-day-num">${dNum}</span></div>`;
+      }
+
+      const todayIso = toIso(new Date());
+      for (let day = 1; day <= daysInMonth; day++) {
+        const curr = new Date(year, month, day);
+        const iso = toIso(curr);
+        const isSel = iso === selectedIso;
+        const isToday = iso === todayIso;
+
+        const dayEvents = events.filter(e => e.date === iso);
+
+        let dotsHtml = "";
+        if (dayEvents.some(e => e.type === "match")) dotsHtml += `<div class="dot match"></div>`;
+        if (dayEvents.some(e => e.type === "training")) dotsHtml += `<div class="dot training"></div>`;
+
+        cellsHtml += `
+          <div class="cal-cell ${isSel ? 'selected' : ''} ${isToday ? 'today' : ''}" onclick="selectDate('${iso}')">
+            <span class="cal-day-num">${day}</span>
+            <div class="cal-dots">${dotsHtml}</div>
+          </div>
+        `;
+      }
+
+      const dayEvents = events.filter(e => e.date === selectedIso);
+
+      let eventsSection = "";
+      if (dayEvents.length > 0) {
+        eventsSection = dayEvents.map(e => {
+          const isMatch = e.type === "match";
+          const title = isMatch 
+            ? `🏐 Zápas vs ${escapeHtml(e.opponent || 'Soupeř')}`
+            : `💪 ${escapeHtml(e.title || 'Trénink')}`;
+
+          const details = [];
+          if (e.time) details.push(`🕒 ${escapeHtml(e.time)}`);
+          if (e.location) details.push(`📍 ${escapeHtml(e.location)}`);
+          const sub = details.join(" • ") || "Bez specifikovaného času/místa";
+
+          const planStats = getEventPlanStats(e);
+
+          return `
+            <div class="event-card ${e.type}">
+              <div class="event-header">
+                <div>
+                  <div class="event-title">${title}</div>
+                  <div class="event-sub">${sub}</div>
+                </div>
+                <span class="badge ${isMatch ? 'badge-match' : 'badge-training'}">
+                  ${isMatch ? 'Zápas' : 'Trénink'}
+                </span>
+              </div>
+
+              ${planStats.planned > 0 ? `
+                <div style="margin-top:8px; background:#fff; padding:8px 10px; border-radius:10px; border:1px solid var(--border);">
+                  <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:700;">
+                    <span style="color:var(--primary);">Míra splnění plánu:</span>
+                    <span style="color:var(--green);">${planStats.pct}% (${planStats.completed}/${planStats.planned} prvků)</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" style="width:${planStats.pct}%;"></div>
+                  </div>
+                </div>
+              ` : `
+                <div style="font-size:12px; color:var(--subtext); margin-top:6px;">
+                  ⚪ Taktický plán zatím nebyl připraven.
+                </div>
+              `}
+
+              <div class="event-actions">
+                <button class="btn btn-secondary" style="flex:1; padding:8px 12px; font-size:13px;" onclick="openPlanModal('${e.id}')">
+                  📋 Taktický plán & Checklist
+                </button>
+                <button class="btn btn-outline" style="width:auto; padding:8px 12px; font-size:13px;" onclick="deleteEvent('${e.id}')">
+                  🗑️
+                </button>
+              </div>
+            </div>
+          `;
+        }).join("");
+      } else {
+        eventsSection = `
+          <div style="text-align:center; padding:20px; color:var(--subtext); font-size:13px;">
+            Žádné akce naplánované na tento den.
+          </div>
+        `;
+      }
+
+      return `
+        <div class="cal-header">
+          <div class="cal-month-title">${monthName}</div>
+          <div class="cal-nav">
+            <button class="cal-today-btn" onclick="goToday()">Dnes</button>
+            <button class="cal-btn" onclick="prevMonth()">‹</button>
+            <button class="cal-btn" onclick="nextMonth()">›</button>
+          </div>
+        </div>
+
+        <div class="cal-grid">${cellsHtml}</div>
+
+        <div class="detail-card">
+          <div class="detail-head">
+            <div class="detail-date">${formatCsDateLong(selectedIso)}</div>
+            <button class="cal-today-btn" onclick="openEventModal()">+ Přidat akci</button>
+          </div>
+          ${eventsSection}
+        </div>
+      `;
+    }
+
+    function getEventPlanStats(event) {
+      if (!event.plan) return { planned: 0, completed: 0, pct: 0 };
+      let planned = 0;
+      let completed = 0;
+
+      Object.values(event.plan).forEach(item => {
+        if (item.planned) {
+          planned++;
+          if (item.completed) completed++;
+        }
+      });
+
+      const pct = planned > 0 ? Math.round((completed / planned) * 100) : 0;
+      return { planned, completed, pct };
+    }
+
+    function selectDate(iso) {
+      const [y, m, d] = iso.split("-").map(Number);
+      selectedDate = new Date(y, m - 1, d);
+      render();
+    }
+
+    function goToday() {
+      selectedDate = new Date();
+      currentCalMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+      render();
+    }
+
+    function prevMonth() {
+      currentCalMonth.setMonth(currentCalMonth.getMonth() - 1);
+      render();
+    }
+
+    function nextMonth() {
+      currentCalMonth.setMonth(currentCalMonth.getMonth() + 1);
+      render();
+    }
+
+    function toggleEventFields() {
+      const type = document.getElementById("eventType").value;
+      const oppGrp = document.getElementById("eventOpponentGroup");
+      const titleGrp = document.getElementById("eventTitleGroup");
+
+      if (type === "match") {
+        oppGrp.style.display = "block";
+        titleGrp.style.display = "none";
+      } else {
+        oppGrp.style.display = "none";
+        titleGrp.style.display = "block";
+      }
+    }
+
+    function openEventModal() {
+      document.getElementById("eventId").value = "";
+      document.getElementById("modalTitle").textContent = "Naplánovat novou akci (" + formatCsDateShort(toIso(selectedDate)) + ")";
+      document.getElementById("eventType").value = "match";
+      document.getElementById("eventOpponent").value = "";
+      document.getElementById("eventTitle").value = "";
+      document.getElementById("eventTime").value = "";
+      document.getElementById("eventLoc").value = "";
+      toggleEventFields();
+      document.getElementById("eventModal").style.display = "flex";
+    }
+
+    function closeEventModal() {
+      document.getElementById("eventModal").style.display = "none";
+    }
+
+    function saveEventModal() {
+      const type = document.getElementById("eventType").value;
+      const opponent = document.getElementById("eventOpponent").value.trim();
+      const title = document.getElementById("eventTitle").value.trim();
+      const time = document.getElementById("eventTime").value.trim();
+      const location = document.getElementById("eventLoc").value.trim();
+
+      if (type === "match" && !opponent) {
+        showToast("Zadej prosím soupeře");
+        return;
+      }
+
+      const newEvt = {
+        id: "evt_" + Date.now(),
+        date: toIso(selectedDate),
+        type,
+        opponent: type === "match" ? opponent : "",
+        title: type === "training" ? (title || "Trénink") : "",
+        time,
+        location,
+        plan: {},
+        wentWell: "",
+        improve: "",
+        kneePain: 0,
+        kneePainNote: ""
+      };
+
+      events.push(newEvt);
+      localStorage.setItem(STORAGE_KEY_EVENTS, JSON.stringify(events));
+
+      closeEventModal();
+      showToast("Akce byla úspěšně vytvořena!");
+      render();
+    }
+
+    function deleteEvent(id) {
+      if (confirm("Opravdu chceš smazat tuto akci a její taktický plán?")) {
+        events = events.filter(e => e.id !== id);
+        localStorage.setItem(STORAGE_KEY_EVENTS, JSON.stringify(events));
+        showToast("Akce byla smazána");
+        render();
+      }
+    }
+
+    let activePlanState = {};
+
+    function openPlanModal(eventId) {
+      const evt = events.find(e => e.id === eventId);
+      if (!evt) return;
+
+      document.getElementById("planEventId").value = evt.id;
+      document.getElementById("planModalHeader").textContent = evt.type === "match" 
+        ? `Taktický plán vs ${evt.opponent || 'Soupeř'}`
+        : `Taktický plán - ${evt.title || 'Trénink'}`;
+      
+      document.getElementById("planModalDate").textContent = `Datum: ${formatCsDateLong(evt.date)}`;
+
+      activePlanState = JSON.parse(JSON.stringify(evt.plan || {}));
+
+      document.getElementById("p-wentWell").value = evt.wentWell || "";
+      document.getElementById("p-improve").value = evt.improve || "";
+      document.getElementById("p-kneePain").value = evt.kneePain || 0;
+      updatePainBadge(evt.kneePain || 0);
+      document.getElementById("p-kneePainNote").value = evt.kneePainNote || "";
+
+      renderChecklistUI();
+      document.getElementById("planModal").style.display = "flex";
+    }
+
+    function closePlanModal() {
+      document.getElementById("planModal").style.display = "none";
+    }
+
+    function renderChecklistUI() {
+      const container = document.getElementById("checklistContainer");
+      
+      container.innerHTML = CHECKLIST_CATEGORIES.map(cat => {
+        const itemsHtml = cat.items.map(item => {
+          const state = activePlanState[item.id] || { planned: false, completed: false };
+          return `
+            <div class="check-row">
+              <span class="check-label">${escapeHtml(item.label)}</span>
+              <div class="check-controls">
+                <button class="chk-btn ${state.planned ? 'plan-active' : ''}" onclick="togglePlanItem('${item.id}', 'planned')">
+                  ${state.planned ? '📌 Naplánováno' : '+ Plán'}
+                </button>
+                <button class="chk-btn ${state.completed ? 'done-active' : ''}" onclick="togglePlanItem('${item.id}', 'completed')">
+                  ${state.completed ? '✅ Splněno' : 'Splněno?'}
+                </button>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        return `
+          <div class="cat-box">
+            <div class="cat-title">
+              <span>${cat.icon} ${cat.title}</span>
+            </div>
+            ${itemsHtml}
+          </div>
+        `;
+      }).join("");
+    }
+
+    function togglePlanItem(itemId, field) {
+      if (!activePlanState[itemId]) {
+        activePlanState[itemId] = { planned: false, completed: false };
+      }
+      
+      activePlanState[itemId][field] = !activePlanState[itemId][field];
+
+      if (field === "completed" && activePlanState[itemId].completed) {
+        activePlanState[itemId].planned = true;
+      }
+
+      renderChecklistUI();
+    }
+
+    function updatePainBadge(val) {
+      const b = document.getElementById("painBadge");
+      b.textContent = val;
+      b.style.background = getPainColor(Number(val));
+    }
+
+    function savePlanModal() {
+      const eventId = document.getElementById("planEventId").value;
+      const evtIdx = events.findIndex(e => e.id === eventId);
+      if (evtIdx === -1) return;
+
+      events[evtIdx].plan = activePlanState;
+      events[evtIdx].wentWell = document.getElementById("p-wentWell").value.trim();
+      events[evtIdx].improve = document.getElementById("p-improve").value.trim();
+      events[evtIdx].kneePain = Number(document.getElementById("p-kneePain").value) || 0;
+      events[evtIdx].kneePainNote = document.getElementById("p-kneePainNote").value.trim();
+
+      localStorage.setItem(STORAGE_KEY_EVENTS, JSON.stringify(events));
+
+      closePlanModal();
+      showToast("Taktický plán a hodnocení bylo uloženo!");
+      render();
+    }
+
+    function renderHistoryView() {
+      const totalEvents = events.length;
+      let grandPlanned = 0;
+      let grandCompleted = 0;
+
+      events.forEach(e => {
+        const stats = getEventPlanStats(e);
+        grandPlanned += stats.planned;
+        grandCompleted += stats.completed;
+      });
+
+      const avgSuccessRate = grandPlanned > 0 ? Math.round((grandCompleted / grandPlanned) * 100) : 0;
+      const sortedEvents = [...events].sort((a, b) => b.date.localeCompare(a.date));
+
+      const historyHtml = sortedEvents.length === 0
+        ? `<div style="text-align:center; color:var(--subtext); padding:40px 10px;">Zatím nebyly zaznamenány žádné odehrané akce.</div>`
+        : sortedEvents.map(e => {
+            const isMatch = e.type === "match";
+            const title = isMatch 
+              ? `Zápas vs ${escapeHtml(e.opponent || 'Soupeř')}`
+              : escapeHtml(e.title || 'Trénink');
+
+            const stats = getEventPlanStats(e);
+
+            return `
+              <div class="detail-card" style="margin-bottom:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:10px;">
+                  <div>
+                    <div style="font-size:12px; font-weight:700; color:var(--subtext);">${formatCsDateLong(e.date)}</div>
+                    <div style="font-size:16px; font-weight:800; color:var(--primary); margin-top:2px;">
+                      ${title}
+                    </div>
+                  </div>
+                  <span class="badge ${isMatch ? 'badge-match' : 'badge-training'}">
+                    ${isMatch ? 'Zápas' : 'Trénink'}
+                  </span>
+                </div>
+
+                <div style="margin-bottom:12px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:13px; font-weight:700; color:var(--primary);">Míra splnění herního plánu:</span>
+                    <span style="font-size:15px; font-weight:800; color:${stats.pct >= 70 ? 'var(--green)' : 'var(--accent)'};">
+                      ${stats.pct}% (${stats.completed}/${stats.planned})
+                    </span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" style="width:${stats.pct}%; background:${stats.pct >= 70 ? 'var(--green)' : 'var(--accent)'};"></div>
+                  </div>
+                </div>
+
+                ${renderPlannedItemsSummary(e.plan)}
+
+                ${e.wentWell ? `
+                  <div style="font-size:12px; background:#F0FDF4; border:1px solid #DCFCE7; padding:8px 10px; border-radius:10px; margin-top:8px;">
+                    <strong style="color:#166534;">👍 Co se povedlo:</strong> ${escapeHtml(e.wentWell)}
+                  </div>
+                ` : ''}
+
+                ${e.improve ? `
+                  <div style="font-size:12px; background:#FEF2F2; border:1px solid #FEE2E2; padding:8px 10px; border-radius:10px; margin-top:6px;">
+                    <strong style="color:#991B1B;">🎯 Na čem zapracovat:</strong> ${escapeHtml(e.improve)}
+                  </div>
+                ` : ''}
+
+                ${e.kneePain > 0 ? `
+                  <div style="font-size:12px; margin-top:8px; display:flex; align-items:center; gap:6px;">
+                    <span class="pain-num" style="background:${getPainColor(e.kneePain)}; width:20px; height:20px; font-size:11px;">${e.kneePain}</span>
+                    <span style="color:var(--subtext);">Fyzický stav: ${escapeHtml(e.kneePainNote || 'Byla zaznamenána bolest/nepohodlí')}</span>
+                  </div>
+                ` : ''}
+
+                <div style="margin-top:10px; text-align:right;">
+                  <button class="btn btn-secondary" style="display:inline-flex; width:auto; padding:6px 12px; font-size:12px;" onclick="openPlanModal('${e.id}')">
+                    ✏️ Upravit hodnocení
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join("");
+
+      return `
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-val" style="color:var(--accent);">${avgSuccessRate}%</div>
+            <div class="stat-lbl">PRŮMĚRNÁ ÚSPĚŠNOST PLÁNU</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val">${grandCompleted} / ${grandPlanned}</div>
+            <div class="stat-lbl">SPLNĚNÝCH PRVKŮ</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val">${totalEvents}</div>
+            <div class="stat-lbl">CELKEM AKCÍ</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val">${events.filter(e => e.type === "match").length}</div>
+            <div class="stat-lbl">ODEHRANÝCH ZÁPASŮ</div>
+          </div>
+        </div>
+
+        <h3 style="font-size:16px; font-weight:800; color:var(--primary); margin-bottom:12px;">Historie akcí & Vyhodnocení</h3>
+        ${historyHtml}
+      `;
+    }
+
+    function renderPlannedItemsSummary(planObj) {
+      if (!planObj) return "";
+      const items = [];
+      
+      CHECKLIST_CATEGORIES.forEach(cat => {
+        cat.items.forEach(it => {
+          if (planObj[it.id] && planObj[it.id].planned) {
+            items.push({
+              label: it.label,
+              completed: !!planObj[it.id].completed
+            });
+          }
+        });
+      });
+
+      if (items.length === 0) return "";
+
+      return `
+        <div style="font-size:12px; color:var(--subtext); margin-top:8px;">
+          <strong>Naplánované prvky:</strong>
+          <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
+            ${items.map(it => `
+              <span style="padding:2px 6px; border-radius:6px; font-size:11px; font-weight:700; ${it.completed ? 'background:var(--green-soft); color:var(--green); border:1px solid rgba(16,185,129,0.3);' : 'background:#F1F5F9; color:var(--subtext);'}">
+                ${it.completed ? '✓' : '○'} ${escapeHtml(it.label)}
+              </span>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function escapeHtml(str) {
+      return String(str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    let deferredPrompt;
+    const installBtn = document.getElementById('installBtn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'inline-block';
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') installBtn.style.display = 'none';
+      deferredPrompt = null;
+    });
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
+      });
+    }
+
+    render();
+  </script>
+</body>
+</html>
